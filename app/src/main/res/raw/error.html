@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="fr">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Erreur de connexion</title>
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                background-color: #f6f8fa;
+                color: #333;
+                text-align: center;
+                padding: 50px 20px;
+            }
+            h1 {
+                font-size: 32px;
+                color: #e63946;
+                margin-bottom: 20px;
+            }
+            p {
+                font-size: 18px;
+                margin-bottom: 30px;
+            }
+            button {
+                background-color: #e63946;
+                color: white;
+                border: none;
+                padding: 12px 24px;
+                border-radius: 8px;
+                font-size: 16px;
+                cursor: pointer;
+            }
+            button:hover {
+                background-color: #d62828;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>Oups…</h1>
+        <p>Nous n'avons pas pu charger la page.</p>
+        <p>Veuillez vérifier votre connexion Internet et réessayer.</p>
+        <button onclick="window.location.reload()">Réessayer</button>
+    </body>
+</html>

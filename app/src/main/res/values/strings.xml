@@ -1,3 +1,8 @@
 <resources>
     <string name="app_name">Annuaire Showroom Africa</string>
+
+    <string name="error_message">Une erreur est survenue. Veuillez réessayer.</string>
+    <string name="retry">Réessayer</string>
+    <string name="error_icon_description">Icône indiquant une erreur</string>
+
 </resources>
