@@ -2,27 +2,35 @@ plugins {
     id 'com.android.application'
 }
 
+def MYAPP_RELEASE_STORE_FILE = project.hasProperty('MYAPP_RELEASE_STORE_FILE') ? file(MYAPP_RELEASE_STORE_FILE) : null
+def MYAPP_RELEASE_STORE_PASSWORD = project.hasProperty('MYAPP_RELEASE_STORE_PASSWORD') ? MYAPP_RELEASE_STORE_PASSWORD : ""
+def MYAPP_RELEASE_KEY_ALIAS = project.hasProperty('MYAPP_RELEASE_KEY_ALIAS') ? MYAPP_RELEASE_KEY_ALIAS : ""
+def MYAPP_RELEASE_KEY_PASSWORD = project.hasProperty('MYAPP_RELEASE_KEY_PASSWORD') ? MYAPP_RELEASE_KEY_PASSWORD : ""
+
 android {
     namespace 'com.showroomafrica.annuaire'
-    compileSdk 34
+    compileSdk 35
 
     defaultConfig {
         applicationId "com.showroomafrica.annuaire"
         minSdk 27
-        targetSdk 34
-        versionCode 10
-        versionName "2.0"
+        targetSdk 35
+        versionCode 11
+        versionName "2.1"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
 
         signingConfigs {
             release {
-                storeFile file(MYAPP_RELEASE_STORE_FILE)
+                storeFile MYAPP_RELEASE_STORE_FILE
                 storePassword MYAPP_RELEASE_STORE_PASSWORD
                 keyAlias MYAPP_RELEASE_KEY_ALIAS
                 keyPassword MYAPP_RELEASE_KEY_PASSWORD
             }
         }
+
+        // Optimisation taille APK si tu ne vises qu’une langue
+        resConfigs "fr"
     }
 
     buildTypes {
@@ -37,18 +45,33 @@ android {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
     }
+
+    buildFeatures {
+        viewBinding true
+    }
+
+    lint {
+        abortOnError false
+        checkReleaseBuilds false
+    }
+
+    packagingOptions {
+        exclude 'META-INF/DEPENDENCIES'
+        exclude 'META-INF/LICENSE'
+        exclude 'META-INF/LICENSE.txt'
+        exclude 'META-INF/NOTICE'
+        exclude 'META-INF/NOTICE.txt'
+    }
 }
 
 dependencies {
+    implementation "androidx.appcompat:appcompat:1.7.1"
+    implementation "com.google.android.material:material:1.12.0"
+    implementation "androidx.constraintlayout:constraintlayout:2.2.1"
     implementation "androidx.browser:browser:1.8.0"
-
-    implementation 'androidx.appcompat:appcompat:1.7.0'
-    implementation 'com.google.android.material:material:1.12.0'
-    implementation 'androidx.constraintlayout:constraintlayout:2.2.1'
-    testImplementation 'junit:junit:4.13.2'
-    androidTestImplementation 'androidx.test.ext:junit:1.2.1'
-    androidTestImplementation 'androidx.test.espresso:espresso-core:3.6.1'
-
     implementation "androidx.swiperefreshlayout:swiperefreshlayout:1.1.0"
-}
 
+    testImplementation "junit:junit:4.13.2"
+    androidTestImplementation "androidx.test.ext:junit:1.2.2"
+    androidTestImplementation "androidx.test.espresso:espresso-core:3.6.2"
+}

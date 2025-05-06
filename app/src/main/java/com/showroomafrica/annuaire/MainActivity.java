@@ -1,11 +1,10 @@
 package com.showroomafrica.annuaire;
 
 import android.content.Context;
-import android.content.DialogInterface;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.net.ConnectivityManager;
-import android.net.NetworkInfo;
+import android.net.NetworkCapabilities;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -17,7 +16,6 @@ import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
-import android.widget.ProgressBar;
 import android.widget.Toast;
 
 import androidx.activity.OnBackPressedCallback;
@@ -25,92 +23,103 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.browser.customtabs.CustomTabsIntent;
 import androidx.core.view.WindowInsetsControllerCompat;
-import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
+
+
+import com.showroomafrica.annuaire.databinding.ActivityMainBinding;
 
 public class MainActivity extends AppCompatActivity {
 
-    WebView mWebview;
-    SwipeRefreshLayout swipeRefreshLayout;
-    ProgressBar progressBar;
+    private ActivityMainBinding binding;
+
+    private static final String TAG = "MainActivity";
+    private static final String HOME_URL = "https://www.showroomafrica.com/";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
 
-        // Initialisation des vues
-        progressBar = findViewById(R.id.progressBar);
-        mWebview = findViewById(R.id.webview);
-        swipeRefreshLayout = findViewById(R.id.reload);
+        // Utilisation de ViewBinding
+        binding = ActivityMainBinding.inflate(getLayoutInflater());
+        setContentView(binding.getRoot());
 
-        // Contrôle des barres système
-        WindowInsetsControllerCompat windowInsetsController =
-                new WindowInsetsControllerCompat(getWindow(), getWindow().getDecorView());
-        windowInsetsController.setAppearanceLightStatusBars(true);
+        // Apparence barre système (texte sombre)
+        new WindowInsetsControllerCompat(getWindow(), getWindow().getDecorView())
+                .setAppearanceLightStatusBars(true);
 
-        // Vérification de la connexion Internet
+        // Vérification connexion internet
         if (!isNetworkAvailable()) {
             showError("Pas de connexion Internet disponible");
             return;
         }
 
-        // Configuration sécurisée du WebView
         configureSecureWebView();
-
-        // Chargement du site
-        loadSecureUrl("https://www.showroomafrica.com/");
-
-        // Gestion du swipe to refresh
+        loadSecureUrl(HOME_URL);
         setupSwipeRefresh();
-
-        // Gestion du bouton back
         setupBackButton();
     }
 
     private boolean isNetworkAvailable() {
         ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
-        NetworkInfo activeNetwork = cm.getActiveNetworkInfo();
-        return activeNetwork != null && activeNetwork.isConnectedOrConnecting();
+        if (cm == null) return false;
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) { // API 29+
+            NetworkCapabilities nc = cm.getNetworkCapabilities(cm.getActiveNetwork());
+            return nc != null &&
+                    (nc.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ||
+                            nc.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) ||
+                            nc.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET));
+        } else {
+            // Pour les versions antérieures, isConnected() est déprécié mais toujours fonctionnel
+            android.net.NetworkInfo activeNetwork = cm.getActiveNetworkInfo();
+            return activeNetwork != null && activeNetwork.isConnected();
+        }
     }
 
+
     private void configureSecureWebView() {
-        WebSettings webSettings = mWebview.getSettings();
+        WebSettings settings = binding.webview.getSettings();
 
-        // Configuration de sécurité
-        webSettings.setJavaScriptEnabled(true); // Active si besoin uniquement
-        webSettings.setDomStorageEnabled(false);
-        webSettings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
+        // Sécurité
+        settings.setJavaScriptEnabled(true); // activer uniquement si nécessaire
+        settings.setDomStorageEnabled(false);
+        settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
 
-        webSettings.setAllowFileAccess(false);
-        webSettings.setAllowContentAccess(false);
-        webSettings.setAllowFileAccessFromFileURLs(false);
-        webSettings.setAllowUniversalAccessFromFileURLs(false);
+        settings.setAllowFileAccess(false);
+        settings.setAllowContentAccess(false);
+        settings.setAllowFileAccessFromFileURLs(false);
+        settings.setAllowUniversalAccessFromFileURLs(false);
 
-        // Performances
-        webSettings.setLoadWithOverviewMode(true);
-        webSettings.setUseWideViewPort(true);
+        // Performance
+        settings.setLoadWithOverviewMode(true);
+        settings.setUseWideViewPort(true);
+        settings.setCacheMode(WebSettings.LOAD_NO_CACHE); // Pas de cache pour contenu dynamique
 
-        mWebview.setWebViewClient(new SecureWebViewClient());
+        // WebViewClient personnalisé
+        binding.webview.setWebViewClient(new SecureWebViewClient());
+
+        // Désactiver zoom (optionnel)
+        settings.setSupportZoom(false);
+        settings.setBuiltInZoomControls(false);
     }
 
     private void loadSecureUrl(String url) {
-        if (url.startsWith("https://www.showroomafrica.com")) {
-            Log.d("WEBVIEW_NAVIGATION", "Chargement de : " + url);
-            mWebview.loadUrl(url);
+        if (url.startsWith(HOME_URL)) {
+            Log.d(TAG, "Chargement URL : " + url);
+            binding.webview.loadUrl(url);
         } else {
             showError("URL non autorisée");
         }
     }
 
     private void setupSwipeRefresh() {
-        mWebview.setOnScrollChangeListener((v, scrollX, scrollY, oldScrollX, oldScrollY) ->
-                swipeRefreshLayout.setEnabled(scrollY == 0));
+        binding.webview.setOnScrollChangeListener((v, scrollX, scrollY, oldScrollX, oldScrollY) ->
+                binding.reload.setEnabled(scrollY == 0));
 
-        swipeRefreshLayout.setOnRefreshListener(() -> {
+        binding.reload.setOnRefreshListener(() -> {
             if (isNetworkAvailable()) {
-                mWebview.reload();
+                binding.webview.reload();
             } else {
-                swipeRefreshLayout.setRefreshing(false);
+                binding.reload.setRefreshing(false);
                 showError("Pas de connexion Internet");
             }
         });
@@ -120,8 +129,8 @@ public class MainActivity extends AppCompatActivity {
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
-                if (mWebview.canGoBack()) {
-                    mWebview.goBack();
+                if (binding.webview.canGoBack()) {
+                    binding.webview.goBack();
                 } else {
                     new AlertDialog.Builder(MainActivity.this)
                             .setTitle("Quitter l'application")
@@ -135,25 +144,26 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void showError(String message) {
-        progressBar.setVisibility(View.GONE);
-        swipeRefreshLayout.setRefreshing(false);
+        binding.progressBar.setVisibility(View.GONE);
+        binding.reload.setRefreshing(false);
         Toast.makeText(this, message, Toast.LENGTH_LONG).show();
 
-        // Afficher une page d'erreur locale
-        mWebview.loadUrl("about:blank");
-        mWebview.loadUrl("file:///android_res/raw/error.html");
+        // Charge une page d'erreur locale si possible
+        binding.webview.loadUrl("about:blank");
+        binding.webview.loadUrl("file:///android_res/raw/error.html");
     }
 
     private class SecureWebViewClient extends WebViewClient {
+
         @Override
         public void onPageStarted(WebView view, String url, Bitmap favicon) {
-            progressBar.setVisibility(View.VISIBLE);
+            binding.progressBar.setVisibility(View.VISIBLE);
         }
 
         @Override
         public void onPageFinished(WebView view, String url) {
-            progressBar.setVisibility(View.GONE);
-            swipeRefreshLayout.setRefreshing(false);
+            binding.progressBar.setVisibility(View.GONE);
+            binding.reload.setRefreshing(false);
         }
 
         @Override
@@ -161,22 +171,22 @@ public class MainActivity extends AppCompatActivity {
             String url = request.getUrl().toString();
 
             if (url.startsWith("file://") || url.contains("javascript:")) {
+                // Bloquer les URL dangereuses
                 return true;
             }
 
-            if (url.startsWith("https://www.showroomafrica.com")) {
+            if (url.startsWith(HOME_URL)) {
+                // Navigation interne dans WebView
                 return false;
             }
 
+            // URLs externes ouvertes via Custom Tabs ou navigateur
             try {
-                CustomTabsIntent.Builder builder = new CustomTabsIntent.Builder();
-                CustomTabsIntent customTabsIntent = builder.build();
+                CustomTabsIntent customTabsIntent = new CustomTabsIntent.Builder().build();
                 customTabsIntent.launchUrl(MainActivity.this, Uri.parse(url));
             } catch (Exception e) {
-                Log.e("SECURITY", "Erreur d'ouverture de l'URL externe", e);
-                // Fallback si Custom Tabs indisponible
-                Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
-                startActivity(browserIntent);
+                Log.e(TAG, "Erreur ouverture URL externe", e);
+                startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
             }
 
             return true;
@@ -188,10 +198,9 @@ public class MainActivity extends AppCompatActivity {
 
             if (request.isForMainFrame()) {
                 showError("Erreur de chargement");
-                Log.e("WEBVIEW_ERROR", "Code: " + error.getErrorCode() + " - " + error.getDescription());
+                Log.e(TAG, "Code: " + error.getErrorCode() + " - " + error.getDescription());
             }
         }
-
 
         @Override
         public void onReceivedHttpError(WebView view, WebResourceRequest request, WebResourceResponse errorResponse) {
@@ -200,5 +209,21 @@ public class MainActivity extends AppCompatActivity {
                 showError("Erreur HTTP " + errorResponse.getStatusCode());
             }
         }
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+
+        // Nettoyer le WebView pour éviter fuites mémoire
+        if (binding.webview != null) {
+            binding.webview.loadUrl("about:blank");
+            binding.webview.stopLoading();
+            binding.webview.setWebChromeClient(null);
+            binding.webview.setWebViewClient(null);
+            binding.webview.destroy();
+        }
+
+        binding = null;
     }
 }
