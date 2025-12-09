@@ -5,11 +5,12 @@ import android.content.Intent;
 import android.graphics.Bitmap;
 import android.net.ConnectivityManager;
 import android.net.NetworkCapabilities;
+import android.net.Network;
 import android.net.Uri;
-import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
+import android.webkit.WebChromeClient;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
@@ -24,7 +25,6 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.browser.customtabs.CustomTabsIntent;
 import androidx.core.view.WindowInsetsControllerCompat;
 
-
 import com.showroomafrica.annuaire.databinding.ActivityMainBinding;
 
 public class MainActivity extends AppCompatActivity {
@@ -38,49 +38,46 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // Utilisation de ViewBinding
         binding = ActivityMainBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
 
-        // Apparence barre système (texte sombre)
+        // Apparence barre système
         new WindowInsetsControllerCompat(getWindow(), getWindow().getDecorView())
                 .setAppearanceLightStatusBars(true);
 
-        // Vérification connexion internet
+        // Vérifier internet
         if (!isNetworkAvailable()) {
             showError("Pas de connexion Internet disponible");
             return;
         }
 
         configureSecureWebView();
-        loadSecureUrl(HOME_URL);
+        binding.webview.loadUrl(HOME_URL);
         setupSwipeRefresh();
         setupBackButton();
     }
 
+    /** Vérification réseau propre */
     private boolean isNetworkAvailable() {
         ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
         if (cm == null) return false;
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) { // API 29+
-            NetworkCapabilities nc = cm.getNetworkCapabilities(cm.getActiveNetwork());
-            return nc != null &&
-                    (nc.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ||
-                            nc.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) ||
-                            nc.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET));
-        } else {
-            // Pour les versions antérieures, isConnected() est déprécié mais toujours fonctionnel
-            android.net.NetworkInfo activeNetwork = cm.getActiveNetworkInfo();
-            return activeNetwork != null && activeNetwork.isConnected();
-        }
+        Network network = cm.getActiveNetwork();
+        if (network == null) return false;
+
+        NetworkCapabilities nc = cm.getNetworkCapabilities(network);
+        return nc != null &&
+                nc.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+                (nc.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)
+                        || nc.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)
+                        || nc.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET));
     }
 
-
+    /** Configuration WebView sécurisée */
     private void configureSecureWebView() {
         WebSettings settings = binding.webview.getSettings();
 
-        // Sécurité
-        settings.setJavaScriptEnabled(true); // activer uniquement si nécessaire
+        settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(false);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
 
@@ -89,70 +86,18 @@ public class MainActivity extends AppCompatActivity {
         settings.setAllowFileAccessFromFileURLs(false);
         settings.setAllowUniversalAccessFromFileURLs(false);
 
-        // Performance
         settings.setLoadWithOverviewMode(true);
         settings.setUseWideViewPort(true);
-        settings.setCacheMode(WebSettings.LOAD_NO_CACHE); // Pas de cache pour contenu dynamique
+        settings.setCacheMode(WebSettings.LOAD_NO_CACHE);
 
-        // WebViewClient personnalisé
+        // WebView sécurisé
         binding.webview.setWebViewClient(new SecureWebViewClient());
 
-        // Désactiver zoom (optionnel)
         settings.setSupportZoom(false);
         settings.setBuiltInZoomControls(false);
     }
 
-    private void loadSecureUrl(String url) {
-        if (url.startsWith(HOME_URL)) {
-            Log.d(TAG, "Chargement URL : " + url);
-            binding.webview.loadUrl(url);
-        } else {
-            showError("URL non autorisée");
-        }
-    }
-
-    private void setupSwipeRefresh() {
-        binding.webview.setOnScrollChangeListener((v, scrollX, scrollY, oldScrollX, oldScrollY) ->
-                binding.reload.setEnabled(scrollY == 0));
-
-        binding.reload.setOnRefreshListener(() -> {
-            if (isNetworkAvailable()) {
-                binding.webview.reload();
-            } else {
-                binding.reload.setRefreshing(false);
-                showError("Pas de connexion Internet");
-            }
-        });
-    }
-
-    private void setupBackButton() {
-        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
-            @Override
-            public void handleOnBackPressed() {
-                if (binding.webview.canGoBack()) {
-                    binding.webview.goBack();
-                } else {
-                    new AlertDialog.Builder(MainActivity.this)
-                            .setTitle("Quitter l'application")
-                            .setMessage("Voulez-vous vraiment quitter ?")
-                            .setPositiveButton("Oui", (dialog, which) -> finish())
-                            .setNegativeButton("Non", null)
-                            .show();
-                }
-            }
-        });
-    }
-
-    private void showError(String message) {
-        binding.progressBar.setVisibility(View.GONE);
-        binding.reload.setRefreshing(false);
-        Toast.makeText(this, message, Toast.LENGTH_LONG).show();
-
-        // Charge une page d'erreur locale si possible
-        binding.webview.loadUrl("about:blank");
-        binding.webview.loadUrl("file:///android_res/raw/error.html");
-    }
-
+    /** Client Web sécurisé */
     private class SecureWebViewClient extends WebViewClient {
 
         @Override
@@ -168,62 +113,109 @@ public class MainActivity extends AppCompatActivity {
 
         @Override
         public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
-            String url = request.getUrl().toString();
+            Uri uri = request.getUrl();
+            String url = uri.toString();
 
-            if (url.startsWith("file://") || url.contains("javascript:")) {
-                // Bloquer les URL dangereuses
+            // Bloquer file://, javascript:// etc.
+            if (!"https".equals(uri.getScheme())) {
                 return true;
             }
 
+            // Navigation interne : autorisée
             if (url.startsWith(HOME_URL)) {
-                // Navigation interne dans WebView
                 return false;
             }
 
-            // URLs externes ouvertes via Custom Tabs ou navigateur
+            // Liens externes : Custom Tabs
             try {
-                CustomTabsIntent customTabsIntent = new CustomTabsIntent.Builder().build();
-                customTabsIntent.launchUrl(MainActivity.this, Uri.parse(url));
+                CustomTabsIntent tabs = new CustomTabsIntent.Builder().build();
+                tabs.launchUrl(MainActivity.this, uri);
             } catch (Exception e) {
                 Log.e(TAG, "Erreur ouverture URL externe", e);
-                startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
+                startActivity(new Intent(Intent.ACTION_VIEW, uri));
             }
 
             return true;
         }
 
         @Override
-        public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
-            super.onReceivedError(view, request, error);
-
-            if (request.isForMainFrame()) {
+        public void onReceivedError(WebView view, WebResourceRequest req, WebResourceError error) {
+            if (req.isForMainFrame()) {
                 showError("Erreur de chargement");
                 Log.e(TAG, "Code: " + error.getErrorCode() + " - " + error.getDescription());
             }
         }
 
         @Override
-        public void onReceivedHttpError(WebView view, WebResourceRequest request, WebResourceResponse errorResponse) {
-            super.onReceivedHttpError(view, request, errorResponse);
-            if (request.isForMainFrame()) {
+        public void onReceivedHttpError(WebView view, WebResourceRequest req,
+                                        WebResourceResponse errorResponse) {
+            if (req.isForMainFrame()) {
                 showError("Erreur HTTP " + errorResponse.getStatusCode());
             }
         }
     }
 
+    /** Swipe-to-refresh */
+    private void setupSwipeRefresh() {
+        binding.webview.setOnScrollChangeListener((v, x, y, ox, oy) ->
+                binding.reload.setEnabled(y == 0));
+
+        binding.reload.setOnRefreshListener(() -> {
+            if (isNetworkAvailable()) {
+                binding.webview.reload();
+            } else {
+                binding.reload.setRefreshing(false);
+                showError("Pas de connexion Internet");
+            }
+        });
+    }
+
+    /** Bouton retour */
+    private void setupBackButton() {
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                if (binding.webview.canGoBack()) {
+                    binding.webview.goBack();
+                } else {
+                    new AlertDialog.Builder(MainActivity.this)
+                            .setTitle("Quitter l'application")
+                            .setMessage("Voulez-vous vraiment quitter ?")
+                            .setPositiveButton("Oui", (d, w) -> finish())
+                            .setNegativeButton("Non", null)
+                            .show();
+                }
+            }
+        });
+    }
+
+    /** Affichage erreurs */
+    private void showError(String msg) {
+        //Log.e("WEBVIEW", "showError() appelé : " + msg);
+        binding.progressBar.setVisibility(View.GONE);
+        binding.reload.setRefreshing(false);
+        Toast.makeText(this, msg, Toast.LENGTH_LONG).show();
+
+        binding.webview.loadUrl("about:blank");
+        binding.webview.loadUrl("file:///android_res/raw/error.html");
+    }
+
+    /** Nettoyage WebView */
     @Override
     protected void onDestroy() {
         super.onDestroy();
 
-        // Nettoyer le WebView pour éviter fuites mémoire
-        if (binding.webview != null) {
-            binding.webview.loadUrl("about:blank");
-            binding.webview.stopLoading();
-            binding.webview.setWebChromeClient(null);
-            binding.webview.setWebViewClient(null);
-            binding.webview.destroy();
-        }
+        if (binding != null) {
+            WebView wv = binding.webview;
 
-        binding = null;
+            wv.loadUrl("about:blank");
+            wv.stopLoading();
+
+            wv.setWebChromeClient(new WebChromeClient());
+            wv.setWebViewClient(new WebViewClient());
+
+            wv.destroy();
+            binding = null;
+        }
     }
 }
