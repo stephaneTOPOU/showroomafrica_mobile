@@ -8,53 +8,52 @@ def MYAPP_RELEASE_KEY_ALIAS = project.hasProperty('MYAPP_RELEASE_KEY_ALIAS') ? M
 def MYAPP_RELEASE_KEY_PASSWORD = project.hasProperty('MYAPP_RELEASE_KEY_PASSWORD') ? MYAPP_RELEASE_KEY_PASSWORD : ""
 
 android {
-    namespace 'com.showroomafrica.annuaire'
-    compileSdkVersion 36
-
+    namespace = 'com.showroomafrica.annuaire'
+    compileSdk = 36
 
     signingConfigs {
         release {
-            storeFile MYAPP_RELEASE_STORE_FILE
-            storePassword MYAPP_RELEASE_STORE_PASSWORD
-            keyAlias MYAPP_RELEASE_KEY_ALIAS
-            keyPassword MYAPP_RELEASE_KEY_PASSWORD
+            storeFile = MYAPP_RELEASE_STORE_FILE
+            storePassword = MYAPP_RELEASE_STORE_PASSWORD
+            keyAlias = MYAPP_RELEASE_KEY_ALIAS
+            keyPassword = MYAPP_RELEASE_KEY_PASSWORD
         }
     }
 
     defaultConfig {
-        applicationId "com.showroomafrica.annuaire"
-        minSdk 27
-        targetSdk 36
-        versionCode 12
-        versionName "2.2"
-        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        applicationId = "com.showroomafrica.annuaire"
+        minSdk = 27
+        targetSdk = 36
+        versionCode = 13
+        versionName = "2.3"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         resourceConfigurations += ['fr'] // Pour réduire la taille (langue française uniquement)
     }
 
     buildTypes {
         release {
-            signingConfig signingConfigs.release
-            minifyEnabled true
-            shrinkResources true
+            signingConfig = signingConfigs.release
+            minifyEnabled = true
+            shrinkResources = true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
 
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_17
-        targetCompatibility JavaVersion.VERSION_17
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
 
     buildFeatures {
-        viewBinding true
+        viewBinding = true
     }
 
     lint {
-        abortOnError false
-        checkReleaseBuilds false
+        abortOnError = false
+        checkReleaseBuilds = false
     }
 
-    packagingOptions {
+    packaging {
         resources {
             excludes += [
                     'META-INF/DEPENDENCIES',
